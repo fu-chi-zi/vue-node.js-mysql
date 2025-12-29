@@ -23,7 +23,7 @@
           <div class="search-input">
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索书名、作者、ISBN"
+              placeholder="搜索书名、作者"
               :prefix-icon="Search"
               clearable
               @keyup.enter="handleSearch"
@@ -55,7 +55,7 @@
         <div class="books-header">
           <h2 class="books-title">图书列表</h2>
           <div class="header-actions">
-            <span class="book-count">共 {{ pagination.total }} 本图书</span>
+            <span class="book-count">共 {{ bookStore.books.length || 0 }} 本图书</span>
             <el-button type="primary" :icon="Plus" @click="handleAdd">
               添加图书
             </el-button>
@@ -63,7 +63,7 @@
         </div>
 
         <!-- 图书卡片网格 -->
-        <div v-loading="loading" class="books-grid">
+        <div v-loading="loading" class="books-grid" >
           <div 
             v-for="book in bookList" 
             :key="book.id" 
@@ -73,7 +73,7 @@
             <div class="book-card">
               <div class="book-cover">
                 <img 
-                  :src="getBookCover(book)" 
+                  :src="book.book_img" 
                   :alt="book.title"
                   @error="handleImageError"
                 />
@@ -81,40 +81,23 @@
               
               <div class="book-content">
                 <div class="book-info">
-                  <h4 class="book-title" :title="book.title">{{ book.title }}</h4>
+                  <h4 class="book-title" :title="book.title">{{ book.book_name }}</h4>
                   <p class="book-author">{{ book.author }}</p>
                   
                   <div class="book-tags">
                     <el-tag size="small" type="primary">{{ book.category }}</el-tag>
                     <el-tag 
                       size="small" 
-                      :type="book.status === 'available' ? 'success' : 'warning'"
+                      :type="book.book_status === 0 ? 'success' : 'warning'"
                     >
-                      {{ book.status === 'available' ? '可借阅' : '已借出' }}
+                      {{ book.book_status === 0 ? '可借阅' : '已借出' }}
                     </el-tag>
                   </div>
                   
-                  <div class="book-stats">
-                    <div class="stat-item">
-                      <el-icon><Reading /></el-icon>
-                      <span>{{ book.borrowCount }}次</span>
-                    </div>
-                    <div class="stat-item">
-                      <el-icon><Box /></el-icon>
-                      <span>库存 {{ book.stock }}</span>
-                    </div>
-                  </div>
                 </div>
 
                 <div class="book-actions">
-                  <el-button 
-                    type="primary" 
-                    size="small" 
-                    :icon="View"
-                    @click="toggleDetail(book.id)"
-                  >
-                    {{ expandedBookId === book.id ? '收起' : '详情' }}
-                  </el-button>
+                 
                   <el-button 
                     type="success" 
                     size="small" 
@@ -135,22 +118,7 @@
               </div>
             </div>
 
-            <!-- 展开的详情区域 -->
-            <transition name="expand">
-              <div v-if="expandedBookId === book.id" class="book-detail-expand">
-                <el-descriptions :column="2" border size="small">
-                  <el-descriptions-item label="ISBN">{{ book.isbn }}</el-descriptions-item>
-                  <el-descriptions-item label="出版社">{{ book.publisher }}</el-descriptions-item>
-                  <el-descriptions-item label="出版日期">{{ book.publishDate }}</el-descriptions-item>
-                  <el-descriptions-item label="价格">¥{{ book.price }}</el-descriptions-item>
-                  <el-descriptions-item label="位置">{{ book.location }}</el-descriptions-item>
-                  <el-descriptions-item label="借阅次数">{{ book.borrowCount }}次</el-descriptions-item>
-                  <el-descriptions-item label="简介" :span="2">
-                    {{ book.description || '暂无简介' }}
-                  </el-descriptions-item>
-                </el-descriptions>
-              </div>
-            </transition>
+           
           </div>
 
           <!-- 空状态 -->
@@ -242,24 +210,7 @@
           </el-col>
         </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="出版社" prop="publisher">
-              <el-input v-model="formData.publisher" placeholder="请输入出版社" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="出版日期" prop="publishDate">
-              <el-date-picker
-                v-model="formData.publishDate"
-                type="date"
-                placeholder="请选择出版日期"
-                style="width: 100%"
-                value-format="YYYY-MM-DD"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        
 
         <el-row :gutter="20">
           <el-col :span="12">
@@ -274,40 +225,17 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="库存" prop="stock">
-              <el-input-number
-                v-model="formData.stock"
-                :min="0"
-                :controls="false"
-                style="width: 100%"
-                placeholder="请输入库存"
-              />
-            </el-form-item>
-          </el-col>
+       
         </el-row>
 
         <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="位置" prop="location">
-              <el-input v-model="formData.location" placeholder="例如：A区-5架" />
-            </el-form-item>
-          </el-col>
+          
           <el-col :span="12">
             <el-form-item label="封面图片">
               <el-input v-model="formData.cover" placeholder="请输入图片URL（可选）" />
             </el-form-item>
           </el-col>
         </el-row>
-
-        <el-form-item label="简介" prop="description">
-          <el-input
-            v-model="formData.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入图书简介"
-          />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -352,13 +280,7 @@ const formData = ref({
   title: '',
   author: '',
   category: '',
-  publisher: '',
-  publishDate: '',
   price: 0,
-  stock: 0,
-  location: '',
-  cover: '',
-  description: ''
 })
 
 const rules = {
@@ -366,11 +288,7 @@ const rules = {
   title: [{ required: true, message: '请输入书名', trigger: 'blur' }],
   author: [{ required: true, message: '请输入作者', trigger: 'blur' }],
   category: [{ required: true, message: '请选择分类', trigger: 'change' }],
-  publisher: [{ required: true, message: '请输入出版社', trigger: 'blur' }],
-  publishDate: [{ required: true, message: '请选择出版日期', trigger: 'change' }],
   price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
-  stock: [{ required: true, message: '请输入库存', trigger: 'blur' }],
-  location: [{ required: true, message: '请输入位置', trigger: 'blur' }]
 }
 
 const dialogTitle = computed(() => isEdit.value ? '编辑图书' : '添加图书')
@@ -432,9 +350,9 @@ const getBookCover = (book) => {
   }
   
   const colors = categoryColors[book.category] || ['667EEA', '764BA2']
-  const encodedTitle = encodeURIComponent(book.title.substring(0, 10))
+  // const encodedTitle = encodeURIComponent(book.title.substring(0, 10))
   
-  return `https://via.placeholder.com/200x280/${colors[0]}/${colors[1]}?text=${encodedTitle}`
+  // return `https://via.placeholder.com/200x280/${colors[0]}/${colors[1]}?text=${encodedTitle}`
 }
 
 // 图片加载失败处理
@@ -494,13 +412,7 @@ const handleAdd = () => {
     title: '',
     author: '',
     category: '',
-    publisher: '',
-    publishDate: '',
     price: 0,
-    stock: 0,
-    location: '',
-    cover: '',
-    description: ''
   }
   dialogVisible.value = true
 }
@@ -519,10 +431,14 @@ const handleDelete = (row) => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    bookStore.deleteBook(row.id)
-    ElMessage.success('删除成功')
-    expandedBookId.value = null
+  }).then(async () => {
+    try {
+      await bookStore.deleteBook(row.id)
+      ElMessage.success('删除成功')
+      expandedBookId.value = null
+    } catch (error) {
+      ElMessage.error('删除失败，请重试')
+    }
   }).catch(() => {})
 }
 
@@ -530,31 +446,33 @@ const handleDelete = (row) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
+  try {
+    const valid = await formRef.value.validate()
     if (valid) {
       submitLoading.value = true
       
-      try {
-        if (isEdit.value) {
-          bookStore.updateBook(currentBook.value.id, formData.value)
-          ElMessage.success('更新成功')
-        } else {
-          bookStore.addBook(formData.value)
-          ElMessage.success('添加成功')
-        }
-        
-        dialogVisible.value = false
-      } catch (error) {
-        ElMessage.error('操作失败，请重试')
-      } finally {
-        submitLoading.value = false
+      if (isEdit.value) {
+        bookStore.updateBook(currentBook.value.id, formData.value)
+        ElMessage.success('更新成功')
+      } else {
+        await bookStore.addBook(formData.value)
+        ElMessage.success('添加成功')
       }
+      
+      dialogVisible.value = false
     }
-  })
+  } catch (error) {
+    if (error !== false) { // validate 返回 false 时不显示错误
+      ElMessage.error('操作失败，请重试')
+    }
+  } finally {
+    submitLoading.value = false
+  }
 }
 
-onMounted(() => {
-  // 初始化数据已在 computed 中处理
+onMounted(async () => {
+  // 加载图书数据
+  await bookStore.fetchBooks()
 })
 </script>
 
@@ -696,8 +614,8 @@ onMounted(() => {
 /* 图书网格 */
 .books-grid {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   overflow-y: auto;
   padding: 4px;
@@ -705,7 +623,9 @@ onMounted(() => {
 
 .book-card-wrapper {
   display: flex;
-  flex-direction: column;
+  /* flex-direction: column; */
+  justify-content: space-evenly;
+  align-items: center;
   gap: 0;
   animation: slideIn 0.5s ease;
 }

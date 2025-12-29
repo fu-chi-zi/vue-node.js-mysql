@@ -1,48 +1,55 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import axios from 'axios'
 
-// 生成虚拟数据
-const generateMockBooks = () => {
-  const categories = ['文学', '历史', '科学', '艺术', '哲学', '计算机', '经济', '心理学']
-  const authors = ['鲁迅', '莫言', '余华', '路遥', '金庸', '王小波', '史铁生', '三毛']
-  const publishers = ['人民文学出版社', '商务印书馆', '中华书局', '三联书店', '上海译文出版社']
-  
-  const books = []
-  for (let i = 1; i <= 50; i++) {
-    books.push({
-      id: i,
-      isbn: `978-7-${Math.floor(Math.random() * 90000 + 10000)}-${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 9 + 1)}`,
-      title: `书籍名称 ${i}`,
-      author: authors[Math.floor(Math.random() * authors.length)],
-      category: categories[Math.floor(Math.random() * categories.length)],
-      publisher: publishers[Math.floor(Math.random() * publishers.length)],
-      publishDate: `${2015 + Math.floor(Math.random() * 9)}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
-      price: (Math.random() * 80 + 20).toFixed(2),
-      stock: Math.floor(Math.random() * 50) + 5,
-      location: `${String.fromCharCode(65 + Math.floor(Math.random() * 5))}区-${Math.floor(Math.random() * 20) + 1}架`,
-      status: Math.random() > 0.2 ? 'available' : 'borrowed',
-      borrowCount: Math.floor(Math.random() * 200),
-      description: '这是一本优秀的书籍，内容丰富，值得一读。',
-      createdAt: new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString()
-    })
+const fetchBooksFromAPI = async () => {
+  //发送请求，拿到书籍数据
+  try {
+    const {data} = await axios.get('http://127.0.0.1:3006/api/book');
+    // 请求成功：打印返回数据
+    console.log('GET请求成功', data.data);
+    return data.data || []
+  } catch (error) {
+    // 请求失败：捕获异常
+    console.error('GET请求失败', error.message);
+    return []
   }
-  return books
 }
 
 export const useBookStore = defineStore('book', () => {
-  const books = ref(generateMockBooks())
+  const books = ref([])
+  const loading = ref(false)
+
+  // 加载图书数据
+  const fetchBooks = async () => {
+    if (loading.value) return
+    loading.value = true
+    try {
+      const data = await fetchBooksFromAPI()
+      books.value = Array.isArray(data) ? data : []
+    } catch (error) {
+      console.error('加载图书失败:', error)
+      books.value = []
+    } finally {
+      loading.value = false
+    }
+  }
 
   // 获取所有图书
   const getBooks = (params = {}) => {
+    // 确保 books.value 是数组
+    if (!Array.isArray(books.value)) {
+      return []
+    }
     let result = [...books.value]
-    
+    console.log(result)
     // 搜索过滤
     if (params.keyword) {
       const keyword = params.keyword.toLowerCase()
       result = result.filter(book => 
-        book.title.toLowerCase().includes(keyword) ||
-        book.author.toLowerCase().includes(keyword) ||
-        book.isbn.includes(keyword)
+        (book.book_name && book.book_name.toLowerCase().includes(keyword)) ||
+        (book.author && book.author.toLowerCase().includes(keyword)) ||
+        (book.book_no && book.book_no.includes(keyword))
       )
     }
     
@@ -53,7 +60,7 @@ export const useBookStore = defineStore('book', () => {
     
     // 状态过滤
     if (params.status) {
-      result = result.filter(book => book.status === params.status)
+      result = result.filter(book => book.book_status === params.status)
     }
     
     return result
@@ -61,24 +68,54 @@ export const useBookStore = defineStore('book', () => {
 
   // 获取图书详情
   const getBookById = (id) => {
+    if (!Array.isArray(books.value)) {
+      return null
+    }
     return books.value.find(book => book.id === id)
   }
 
-  // 添加图书
-  const addBook = (bookData) => {
-    const newBook = {
-      id: books.value.length + 1,
-      ...bookData,
-      borrowCount: 0,
-      status: 'available',
-      createdAt: new Date().toISOString()
+  // 根据图书编号获取图书
+  const getBookByNo = (bookNo) => {
+    if (!Array.isArray(books.value)) {
+      return null
     }
-    books.value.push(newBook)
-    return newBook
+    return books.value.find(book => book.book_no === bookNo)
+  }
+
+  // 根据图书名称获取图书（用于模糊匹配）
+  const getBookByName = (bookName) => {
+    if (!Array.isArray(books.value)) {
+      return null
+    }
+    return books.value.find(book => 
+      book.book_name && (
+        book.book_name.includes(bookName) || 
+        bookName.includes(book.book_name)
+      )
+    )
+  }
+
+  // 添加图书
+  const addBook = async (bookData) => {
+    try {
+      const {data} = await axios.post('http://127.0.0.1:3006/api/book', bookData);
+      // 请求成功：打印返回数据
+      console.log('添加请求成功', data.data);
+      // 重新加载图书列表
+      await fetchBooks()
+      return data.data
+    } catch (error) {
+      // 请求失败：捕获异常
+      console.error('添加图书失败', error.message);
+      throw error
+    }
   }
 
   // 更新图书
   const updateBook = (id, bookData) => {
+    if (!Array.isArray(books.value)) {
+      return null
+    }
     const index = books.value.findIndex(book => book.id === id)
     if (index !== -1) {
       books.value[index] = { ...books.value[index], ...bookData }
@@ -88,39 +125,50 @@ export const useBookStore = defineStore('book', () => {
   }
 
   // 删除图书
-  const deleteBook = (id) => {
-    const index = books.value.findIndex(book => book.id === id)
-    if (index !== -1) {
-      books.value.splice(index, 1)
-      return true
+  const deleteBook = async (id) => {
+    try {
+      const {data} = await axios.delete('http://127.0.0.1:3006/api/deleteBook', {
+        params: {
+          id: id
+        }
+      });
+      // 请求成功：打印返回数据
+      console.log('删除请求成功', data.data);
+      // 重新加载图书列表
+      await fetchBooks()
+      return data.data
+    } catch (error) {
+      // 请求失败：捕获异常
+      console.error('删除图书失败', error.message);
+      throw error
     }
-    return false
   }
 
   // 获取分类统计
   const getCategoryStats = () => {
+    if (!Array.isArray(books.value)) {
+      return []
+    }
     const stats = {}
     books.value.forEach(book => {
-      stats[book.category] = (stats[book.category] || 0) + 1
+      if (book.category) {
+        stats[book.category] = (stats[book.category] || 0) + 1
+      }
     })
     return Object.entries(stats).map(([name, value]) => ({ name, value }))
   }
 
-  // 获取热门图书
-  const getPopularBooks = (limit = 10) => {
-    return [...books.value]
-      .sort((a, b) => b.borrowCount - a.borrowCount)
-      .slice(0, limit)
-  }
-
   return {
     books,
+    loading,
+    fetchBooks,
     getBooks,
     getBookById,
+    getBookByNo,
+    getBookByName,
     addBook,
     updateBook,
     deleteBook,
-    getCategoryStats,
-    getPopularBooks
+    getCategoryStats
   }
 })

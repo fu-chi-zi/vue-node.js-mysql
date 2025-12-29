@@ -69,6 +69,11 @@ export const useReaderStore = defineStore('reader', () => {
     return readers.value.find(reader => reader.id === id)
   }
 
+  // 根据学号获取读者
+  const getReaderByStudentNo = (studentNo) => {
+    return readers.value.find(reader => reader.cardNumber === studentNo || reader.id === studentNo)
+  }
+
   // 添加读者
   const addReader = (readerData) => {
     const newReader = {
@@ -126,6 +131,7 @@ export const useReaderStore = defineStore('reader', () => {
     readers,
     getReaders,
     getReaderById,
+    getReaderByStudentNo,
     addReader,
     updateReader,
     deleteReader,

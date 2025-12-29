@@ -55,7 +55,7 @@
       <el-table :data="recentBorrows" style="width: 100%">
         <el-table-column prop="bookTitle" label="图书名称" min-width="200" />
         <el-table-column prop="readerName" label="借阅人" width="120" />
-        <el-table-column prop="borrowDate" label="借阅日期" width="120" />
+        <el-table-column prop="borrow_time" label="借阅日期" width="120" />
         <el-table-column prop="dueDate" label="应还日期" width="120" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -88,7 +88,7 @@ const trendDays = ref(30)
 const stats = computed(() => [
   {
     title: '图书总数',
-    value: bookStore.books.length,
+    value: bookStore.length,
     icon: 'Reading',
     gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     trend: 12.5
@@ -102,7 +102,7 @@ const stats = computed(() => [
   },
   {
     title: '借阅中',
-    value: borrowStore.getBorrows({ status: 'borrowing' }).length,
+    value: borrowStore.getBorrows().filter(b => !b.return_time).length,
     icon: 'Document',
     gradient: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
     trend: -3.2
@@ -125,8 +125,16 @@ const popularBooks = computed(() => {
 
 // 最近借阅
 const recentBorrows = computed(() => {
-  return borrowStore.getBorrows()
-    .sort((a, b) => new Date(b.borrowDate) - new Date(a.borrowDate))
+  const borrows = borrowStore.getBorrows()
+  if (!Array.isArray(borrows)) {
+    return []
+  }
+  return borrows
+    .sort((a, b) => {
+      const dateA = a.borrow_time ? new Date(a.borrow_time) : new Date(0)
+      const dateB = b.borrow_time ? new Date(b.borrow_time) : new Date(0)
+      return dateB - dateA
+    })
     .slice(0, 8)
 })
 
@@ -309,7 +317,9 @@ const initCategoryChart = () => {
   window.addEventListener('resize', () => chart.resize())
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 加载借阅数据
+  await borrowStore.fetchBorrows()
   updateTrendData()
   initCategoryChart()
 })

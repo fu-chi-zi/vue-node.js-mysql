@@ -190,7 +190,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useBookStore } from '../store/book'
 import { useReaderStore } from '../store/reader'
 import { useBorrowStore } from '../store/borrow'
@@ -326,6 +326,11 @@ const handleSubmit = async () => {
     }
   })
 }
+
+onMounted(async () => {
+  // 加载借阅数据
+  await borrowStore.fetchBorrows()
+})
 </script>
 
 <style scoped>

@@ -17,20 +17,6 @@
 
     <!-- 图表区域 -->
     <div class="charts-grid">
-      <!-- 借阅趋势分析 -->
-      <el-card class="chart-card full-width">
-        <template #header>
-          <div class="card-header">
-            <h3>借阅趋势分析</h3>
-            <el-radio-group v-model="trendPeriod" size="small" @change="updateTrendChart">
-              <el-radio-button value="week">近一周</el-radio-button>
-              <el-radio-button value="month">近一月</el-radio-button>
-              <el-radio-button value="quarter">近三月</el-radio-button>
-            </el-radio-group>
-          </div>
-        </template>
-        <div class="chart-container large" ref="trendChartRef"></div>
-      </el-card>
 
       <!-- 图书分类统计 -->
       <el-card class="chart-card">

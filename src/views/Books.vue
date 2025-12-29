@@ -8,12 +8,13 @@
           
           <div class="category-list">
             <div 
-              v-for="category in categories"
-              :key="category"
-              :class="['category-item', { active: selectedCategory === category }]"
-              @click="handleCategoryChange(category)"
+              v-for="category in categoriesWithCount"
+              :key="category.name"
+              :class="['category-item', { active: selectedCategory === category.name }]"
+              @click="handleCategoryChange(category.name)"
             >
-              {{ category }}
+              <span class="category-name">{{ category.name }}</span>
+              <span v-if="category.count > 0" class="category-count">{{ category.count }}</span>
             </div>
           </div>
         </div>
@@ -22,9 +23,10 @@
           <div class="search-input">
             <el-input
               v-model="searchKeyword"
-              placeholder="搜索"
+              placeholder="搜索书名、作者、ISBN"
               :prefix-icon="Search"
               clearable
+              @keyup.enter="handleSearch"
             />
           </div>
           
@@ -65,68 +67,126 @@
           <div 
             v-for="book in bookList" 
             :key="book.id" 
-            class="book-card"
-            @click="handleView(book)"
+            class="book-card-wrapper"
           >
-            <div class="book-cover">
-              <img 
-                :src="book.cover || 'https://via.placeholder.com/200x280/667eea/ffffff?text=' + encodeURIComponent(book.title)" 
-                :alt="book.title"
-              />
-              <div class="book-overlay">
-                <el-button 
-                  type="primary" 
-                  size="small" 
-                  circle 
-                  :icon="View"
-                  @click.stop="handleView(book)"
+            <!-- 书籍卡片 -->
+            <div class="book-card">
+              <div class="book-cover">
+                <img 
+                  :src="getBookCover(book)" 
+                  :alt="book.title"
+                  @error="handleImageError"
                 />
-                <el-button 
-                  type="success" 
-                  size="small" 
-                  circle 
-                  :icon="Edit"
-                  @click.stop="handleEdit(book)"
-                />
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  circle 
-                  :icon="Delete"
-                  @click.stop="handleDelete(book)"
-                />
+              </div>
+              
+              <div class="book-content">
+                <div class="book-info">
+                  <h4 class="book-title" :title="book.title">{{ book.title }}</h4>
+                  <p class="book-author">{{ book.author }}</p>
+                  
+                  <div class="book-tags">
+                    <el-tag size="small" type="primary">{{ book.category }}</el-tag>
+                    <el-tag 
+                      size="small" 
+                      :type="book.status === 'available' ? 'success' : 'warning'"
+                    >
+                      {{ book.status === 'available' ? '可借阅' : '已借出' }}
+                    </el-tag>
+                  </div>
+                  
+                  <div class="book-stats">
+                    <div class="stat-item">
+                      <el-icon><Reading /></el-icon>
+                      <span>{{ book.borrowCount }}次</span>
+                    </div>
+                    <div class="stat-item">
+                      <el-icon><Box /></el-icon>
+                      <span>库存 {{ book.stock }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="book-actions">
+                  <el-button 
+                    type="primary" 
+                    size="small" 
+                    :icon="View"
+                    @click="toggleDetail(book.id)"
+                  >
+                    {{ expandedBookId === book.id ? '收起' : '详情' }}
+                  </el-button>
+                  <el-button 
+                    type="success" 
+                    size="small" 
+                    :icon="Edit"
+                    @click="handleEdit(book)"
+                  >
+                    编辑
+                  </el-button>
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    :icon="Delete"
+                    @click="handleDelete(book)"
+                  >
+                    删除
+                  </el-button>
+                </div>
               </div>
             </div>
-            
-            <div class="book-info">
-              <h4 class="book-title">{{ book.title }}</h4>
-              <p class="book-author">{{ book.author }}</p>
-              <div class="book-meta">
-                <el-tag size="small" type="primary">{{ book.category }}</el-tag>
-                <el-tag 
-                  size="small" 
-                  :type="book.status === 'available' ? 'success' : 'warning'"
-                >
-                  {{ book.status === 'available' ? '可借阅' : '已借出' }}
-                </el-tag>
+
+            <!-- 展开的详情区域 -->
+            <transition name="expand">
+              <div v-if="expandedBookId === book.id" class="book-detail-expand">
+                <el-descriptions :column="2" border size="small">
+                  <el-descriptions-item label="ISBN">{{ book.isbn }}</el-descriptions-item>
+                  <el-descriptions-item label="出版社">{{ book.publisher }}</el-descriptions-item>
+                  <el-descriptions-item label="出版日期">{{ book.publishDate }}</el-descriptions-item>
+                  <el-descriptions-item label="价格">¥{{ book.price }}</el-descriptions-item>
+                  <el-descriptions-item label="位置">{{ book.location }}</el-descriptions-item>
+                  <el-descriptions-item label="借阅次数">{{ book.borrowCount }}次</el-descriptions-item>
+                  <el-descriptions-item label="简介" :span="2">
+                    {{ book.description || '暂无简介' }}
+                  </el-descriptions-item>
+                </el-descriptions>
               </div>
-              <div class="book-stats">
-                <span><el-icon><Reading /></el-icon> {{ book.borrowCount }}次</span>
-                <span><el-icon><Box /></el-icon> 库存 {{ book.stock }}</span>
-              </div>
-            </div>
+            </transition>
           </div>
 
           <!-- 空状态 -->
           <div v-if="!loading && bookList.length === 0" class="empty-state">
-            <el-empty description="暂无图书数据" />
+            <div class="empty-content">
+              <div class="empty-icon">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="40" y="30" width="120" height="160" rx="8" fill="#e8eaed"/>
+                  <rect x="50" y="40" width="100" height="120" rx="4" fill="#fff"/>
+                  <line x1="60" y1="60" x2="140" y2="60" stroke="#ccc" stroke-width="3"/>
+                  <line x1="60" y1="80" x2="140" y2="80" stroke="#ccc" stroke-width="3"/>
+                  <line x1="60" y1="100" x2="140" y2="100" stroke="#ccc" stroke-width="3"/>
+                  <line x1="60" y1="120" x2="120" y2="120" stroke="#ccc" stroke-width="3"/>
+                </svg>
+              </div>
+              <h3>暂无图书数据</h3>
+              <p v-if="selectedCategory !== '全部'">当前分类下没有图书，试试其他分类吧</p>
+              <p v-else-if="searchKeyword">未找到相关图书，试试其他关键词</p>
+              <p v-else>还没有添加任何图书</p>
+              <el-button 
+                v-if="selectedCategory === '全部' && !searchKeyword" 
+                type="primary" 
+                :icon="Plus" 
+                @click="handleAdd"
+                style="margin-top: 16px"
+              >
+                添加第一本图书
+              </el-button>
+            </div>
           </div>
         </div>
 
         <!-- 分页 -->
-        <div class="pagination-wrapper">
+        <div v-if="bookList.length > 0 || pagination.total > 0" class="pagination-wrapper">
           <el-pagination
-            :page-sizes="[12, 24, 48]"
+            :page-sizes="[10, 20, 30, 50]"
             :total="pagination.total"
             layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
@@ -256,49 +316,6 @@
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 详情对话框 -->
-    <el-dialog
-      v-model="detailVisible"
-      title="图书详情"
-      width="800px"
-    >
-      <div v-if="currentBook" class="book-detail">
-        <div class="detail-content">
-          <div class="detail-cover">
-            <img 
-              :src="currentBook.cover || 'https://via.placeholder.com/300x420/667eea/ffffff?text=' + encodeURIComponent(currentBook.title)" 
-              :alt="currentBook.title"
-            />
-          </div>
-          <div class="detail-info">
-            <h2>{{ currentBook.title }}</h2>
-            <p class="detail-author">作者：{{ currentBook.author }}</p>
-            
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="ISBN">{{ currentBook.isbn }}</el-descriptions-item>
-              <el-descriptions-item label="分类">{{ currentBook.category }}</el-descriptions-item>
-              <el-descriptions-item label="出版社">{{ currentBook.publisher }}</el-descriptions-item>
-              <el-descriptions-item label="出版日期">{{ currentBook.publishDate }}</el-descriptions-item>
-              <el-descriptions-item label="价格">¥{{ currentBook.price }}</el-descriptions-item>
-              <el-descriptions-item label="库存">{{ currentBook.stock }}</el-descriptions-item>
-              <el-descriptions-item label="位置">{{ currentBook.location }}</el-descriptions-item>
-              <el-descriptions-item label="借阅次数">{{ currentBook.borrowCount }}</el-descriptions-item>
-              <el-descriptions-item label="状态">
-                <el-tag :type="currentBook.status === 'available' ? 'success' : 'warning'">
-                  {{ currentBook.status === 'available' ? '可借阅' : '已借出' }}
-                </el-tag>
-              </el-descriptions-item>
-            </el-descriptions>
-
-            <div class="detail-description">
-              <h4>简介</h4>
-              <p>{{ currentBook.description }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
@@ -306,7 +323,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, View, Edit, Delete, Refresh, Reading, Box } from '@element-plus/icons-vue'
-// 🔧 修复：使用 Store 替代 API（如果还没创建 API 文件）
 import { useBookStore } from '../store/book'
 
 // 使用 Store
@@ -317,17 +333,17 @@ const submitLoading = ref(false)
 const searchKeyword = ref('')
 const selectedCategory = ref('全部')
 const dialogVisible = ref(false)
-const detailVisible = ref(false)
 const formRef = ref(null)
 const currentBook = ref(null)
 const isEdit = ref(false)
+const expandedBookId = ref(null)
 
 const categories = ['全部', '童书', '小说', '文学', '艺术', '历史', '科学', '计算机', '经济', '心理学']
 
 // 分页信息
 const pagination = ref({
   page: 1,
-  size: 12,
+  size: 10,
   total: 0
 })
 
@@ -359,6 +375,28 @@ const rules = {
 
 const dialogTitle = computed(() => isEdit.value ? '编辑图书' : '添加图书')
 
+// 计算每个分类的图书数量
+const categoriesWithCount = computed(() => {
+  const allBooks = bookStore.getBooks({
+    keyword: searchKeyword.value
+  })
+  
+  return categories.map(category => {
+    if (category === '全部') {
+      return {
+        name: category,
+        count: allBooks.length
+      }
+    }
+    
+    const count = allBooks.filter(book => book.category === category).length
+    return {
+      name: category,
+      count
+    }
+  })
+})
+
 // 使用 Store 获取图书列表
 const bookList = computed(() => {
   let books = bookStore.getBooks({
@@ -374,15 +412,56 @@ const bookList = computed(() => {
   return books.slice(start, end)
 })
 
+// 生成图书封面
+const getBookCover = (book) => {
+  if (book.cover && book.cover.trim()) {
+    return book.cover
+  }
+  
+  // 根据分类生成不同颜色的渐变背景
+  const categoryColors = {
+    '童书': ['FF6B9D', 'C44569'],
+    '小说': ['667EEA', '764BA2'],
+    '文学': ['F093FB', 'F5576C'],
+    '艺术': ['4FACFE', '00F2FE'],
+    '历史': ['43E97B', '38F9D7'],
+    '科学': ['FA709A', 'FEE140'],
+    '计算机': ['30CFD0', '330867'],
+    '经济': ['A8EDEA', 'FED6E3'],
+    '心理学': ['FFD26F', '3677FF']
+  }
+  
+  const colors = categoryColors[book.category] || ['667EEA', '764BA2']
+  const encodedTitle = encodeURIComponent(book.title.substring(0, 10))
+  
+  return `https://via.placeholder.com/200x280/${colors[0]}/${colors[1]}?text=${encodedTitle}`
+}
+
+// 图片加载失败处理
+const handleImageError = (event) => {
+  event.target.src = 'https://via.placeholder.com/200x280/667EEA/FFFFFF?text=No+Cover'
+}
+
+// 切换详情展开/收起
+const toggleDetail = (bookId) => {
+  if (expandedBookId.value === bookId) {
+    expandedBookId.value = null
+  } else {
+    expandedBookId.value = bookId
+  }
+}
+
 // 分类切换
 const handleCategoryChange = (category) => {
   selectedCategory.value = category
   pagination.value.page = 1
+  expandedBookId.value = null // 切换分类时收起详情
 }
 
 // 搜索
 const handleSearch = () => {
   pagination.value.page = 1
+  expandedBookId.value = null // 搜索时收起详情
 }
 
 // 重置
@@ -390,16 +469,21 @@ const handleReset = () => {
   searchKeyword.value = ''
   selectedCategory.value = '全部'
   pagination.value.page = 1
+  expandedBookId.value = null
 }
 
 // 分页
 const handleSizeChange = (size) => {
   pagination.value.size = size
   pagination.value.page = 1
+  expandedBookId.value = null
 }
 
 const handlePageChange = (page) => {
   pagination.value.page = page
+  expandedBookId.value = null
+  // 滚动到顶部
+  document.querySelector('.books-main')?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 添加图书
@@ -429,21 +513,16 @@ const handleEdit = (row) => {
   dialogVisible.value = true
 }
 
-// 查看详情
-const handleView = (row) => {
-  currentBook.value = row
-  detailVisible.value = true
-}
-
 // 删除图书
 const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除这本图书吗？', '提示', {
+  ElMessageBox.confirm('确定要删除这本图书吗？此操作不可撤销。', '删除确认', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
     bookStore.deleteBook(row.id)
     ElMessage.success('删除成功')
+    expandedBookId.value = null
   }).catch(() => {})
 }
 
@@ -453,15 +532,23 @@ const handleSubmit = async () => {
   
   await formRef.value.validate((valid) => {
     if (valid) {
-      if (isEdit.value) {
-        bookStore.updateBook(currentBook.value.id, formData.value)
-        ElMessage.success('更新成功')
-      } else {
-        bookStore.addBook(formData.value)
-        ElMessage.success('添加成功')
-      }
+      submitLoading.value = true
       
-      dialogVisible.value = false
+      try {
+        if (isEdit.value) {
+          bookStore.updateBook(currentBook.value.id, formData.value)
+          ElMessage.success('更新成功')
+        } else {
+          bookStore.addBook(formData.value)
+          ElMessage.success('添加成功')
+        }
+        
+        dialogVisible.value = false
+      } catch (error) {
+        ElMessage.error('操作失败，请重试')
+      } finally {
+        submitLoading.value = false
+      }
     }
   })
 }
@@ -492,6 +579,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  flex-shrink: 0;
 }
 
 .filter-title {
@@ -508,23 +596,41 @@ onMounted(() => {
 }
 
 .category-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
-  color: #5a5e66;
+  transition: all 0.3s ease;
+  color: #606266;
   font-size: 14px;
 }
 
 .category-item:hover {
   background: #f5f7fa;
-  color: #409eff;
 }
 
 .category-item.active {
   background: #2c3e50;
   color: white;
   font-weight: 500;
+}
+
+.category-name {
+  flex: 1;
+}
+
+.category-count {
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: center;
+  font-weight: 600;
 }
 
 .filter-section {
@@ -534,15 +640,15 @@ onMounted(() => {
 }
 
 .search-input {
-  margin-bottom: 8px;
+  width: 100%;
 }
 
-.search-btn {
+.search-btn,
+.reset-btn {
   width: 100%;
 }
 
 .reset-btn {
-  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -554,6 +660,10 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
@@ -562,10 +672,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e8eaed;
 }
 
 .books-title {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #2c3e50;
 }
@@ -584,69 +696,65 @@ onMounted(() => {
 /* 图书网格 */
 .books-grid {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 24px;
   padding: 4px;
+}
+
+.book-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: slideIn 0.5s ease;
 }
 
 .book-card {
   background: white;
   border-radius: 12px;
   overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  animation: fadeIn 0.5s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  display: flex;
+  gap: 20px;
+  padding: 16px;
 }
 
 .book-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .book-cover {
-  position: relative;
-  width: 100%;
-  height: 280px;
+  flex-shrink: 0;
+  width: 140px;
+  height: 196px;
+  border-radius: 8px;
   overflow: hidden;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .book-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s;
 }
 
-.book-card:hover .book-cover img {
-  transform: scale(1.05);
-}
-
-.book-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+.book-content {
+  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.book-card:hover .book-overlay {
-  opacity: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .book-info {
-  padding: 16px;
+  flex: 1;
 }
 
 .book-title {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
   color: #2c3e50;
   margin-bottom: 8px;
@@ -656,132 +764,112 @@ onMounted(() => {
 }
 
 .book-author {
-  font-size: 13px;
+  font-size: 14px;
   color: #909399;
   margin-bottom: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.book-meta {
+.book-tags {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .book-stats {
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
+  gap: 24px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.stat-item .el-icon {
   color: #909399;
 }
 
-.book-stats span {
+.book-actions {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* 展开的详情区域 */
+.book-detail-expand {
+  background: #f8f9fa;
+  border-radius: 0 0 12px 12px;
+  padding: 16px;
+  margin-top: -12px;
+  border: 1px solid #e8eaed;
+  border-top: none;
+}
+
+/* 展开动画 */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.3s ease;
+  max-height: 500px;
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 /* 空状态 */
 .empty-state {
-  grid-column: 1 / -1;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   min-height: 400px;
 }
 
-/* 分页 */
-.pagination-wrapper {
-  margin-top: 24px;
-  display: flex;
-  justify-content: center;
-  padding: 20px 0;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+.empty-content {
+  text-align: center;
+  max-width: 400px;
 }
 
-/* 详情对话框 */
-.book-detail {
-  padding: 20px 0;
+.empty-icon {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 24px;
+  opacity: 0.5;
 }
 
-.detail-content {
-  display: flex;
-  gap: 32px;
-}
-
-.detail-cover {
-  flex-shrink: 0;
-  width: 300px;
-  height: 420px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.detail-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.detail-info {
-  flex: 1;
-}
-
-.detail-info h2 {
-  font-size: 24px;
-  font-weight: 600;
+.empty-content h3 {
+  font-size: 18px;
   color: #2c3e50;
   margin-bottom: 8px;
 }
 
-.detail-author {
-  font-size: 16px;
-  color: #909399;
-  margin-bottom: 24px;
-}
-
-.detail-description {
-  margin-top: 24px;
-}
-
-.detail-description h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 12px;
-}
-
-.detail-description p {
+.empty-content p {
   font-size: 14px;
-  line-height: 1.8;
-  color: #606266;
+  color: #909399;
+  margin-bottom: 16px;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 分页 */
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  padding-top: 24px;
+  margin-top: 16px;
+  border-top: 1px solid #e8eaed;
 }
 
 /* 响应式 */
 @media (max-width: 1200px) {
-  .books-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
   .books-container {
     flex-direction: column;
     height: auto;
@@ -791,19 +879,32 @@ onMounted(() => {
     width: 100%;
   }
   
-  .books-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
+  .category-list {
+    flex-direction: row;
+    flex-wrap: wrap;
   }
   
-  .detail-content {
+  .category-item {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .book-card {
     flex-direction: column;
   }
   
-  .detail-cover {
+  .book-cover {
     width: 100%;
-    max-width: 300px;
-    margin: 0 auto;
+    height: 240px;
+  }
+  
+  .book-actions {
+    flex-direction: column;
+  }
+  
+  .book-actions .el-button {
+    width: 100%;
   }
 }
 </style>

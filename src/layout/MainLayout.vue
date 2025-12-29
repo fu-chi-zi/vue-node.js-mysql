@@ -96,7 +96,7 @@ const menuRoutes = computed(() => {
 })
 
 const currentPageTitle = computed(() => {
-  return route.meta?.title || '仪表盘'
+  return route.meta?.title || '首页'
 })
 
 const toggleCollapse = () => {

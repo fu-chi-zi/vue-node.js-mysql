@@ -28,19 +28,7 @@
 
     <!-- 图表区域 -->
     <div class="charts-row">
-      <!-- 借阅趋势图 -->
-      <el-card class="chart-card">
-        <template #header>
-          <div class="card-header">
-            <h3>借阅趋势</h3>
-            <el-radio-group v-model="trendDays" size="small" @change="updateTrendData">
-              <el-radio-button :value="7">7天</el-radio-button>
-              <el-radio-button :value="30">30天</el-radio-button>
-            </el-radio-group>
-          </div>
-        </template>
-        <div class="chart-container" ref="trendChartRef"></div>
-      </el-card>
+     
 
       <!-- 图书分类统计 -->
       <el-card class="chart-card">
@@ -51,44 +39,7 @@
       </el-card>
     </div>
 
-    <!-- 热门图书排行 -->
-    <el-card class="popular-books-card">
-      <template #header>
-        <div class="card-header">
-          <h3>热门图书排行榜</h3>
-          <el-button text type="primary" @click="$router.push('/books')">
-            查看更多
-            <el-icon><ArrowRight /></el-icon>
-          </el-button>
-        </div>
-      </template>
-      <div class="popular-books-list">
-        <div
-          v-for="(book, index) in popularBooks"
-          :key="book.id"
-          class="book-item"
-          :style="{ animationDelay: `${index * 0.05}s` }"
-        >
-          <div class="book-rank" :class="`rank-${index + 1}`">
-            {{ index + 1 }}
-          </div>
-          <div class="book-info">
-            <h4 class="book-title">{{ book.title }}</h4>
-            <p class="book-meta">{{ book.author }} · {{ book.category }}</p>
-          </div>
-          <div class="book-stats">
-            <div class="stat-item">
-              <el-icon><Reading /></el-icon>
-              <span>{{ book.borrowCount }}次</span>
-            </div>
-            <div class="stat-item">
-              <el-icon><Box /></el-icon>
-              <span>库存 {{ book.stock }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </el-card>
+
 
     <!-- 最近借阅记录 -->
     <el-card class="recent-borrows-card">
